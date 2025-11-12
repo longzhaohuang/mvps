@@ -6,8 +6,8 @@ The offical github repo for the paper
 "MVPS++ :  Local-Aware Multi-View Prompt Synergy For Zero-Shot Anomaly Detection" (Under Review).
 
 ## Setting 
-### Batch Size and Learning Rate
-Noting that the setting of our experiment is using BatchSize 4 and learning rate is 1e-4.
+### Batch Size and Learning Rate ....
+Noting that the setting of our experiment is using BatchSize 4 and learning rate is 1e-4.  Training Epoch is 2.
 
 The setting of experiment is important to the result. 
 
