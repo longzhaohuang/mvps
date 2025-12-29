@@ -10,44 +10,6 @@ from .clip_model import CLIP
 from .simple_tokenizer import SimpleTokenizer as _Tokenizer
 from .transformer import ResidualAttentionBlock
 
-# class IOUScorePrediction(nn.Module):
-#     def __init__(self, in_channels=768, out_channels=1):
-#         super().__init__()
-#         self.c1_block = nn.Sequential(
-#             nn.Conv2d(
-#                 in_channels, 
-#                 in_channels // 8,
-#                 (7 , 7),
-#                 (2 , 2),
-#                 0
-#             ),
-#             nn.BatchNorm2d(in_channels // 8),
-#             nn.ReLU()
-#         )
-#         self.c2_block = nn.Sequential(
-#             nn.Conv2d(
-#                 in_channels // 8, 
-#                 out_channels,
-#                 (5 , 5),
-#                 (2 , 2),
-#                 0
-#             ),
-#             nn.BatchNorm2d(out_channels),
-#             nn.ReLU()
-#         )
-#         self.avg_pool = nn.AdaptiveAvgPool2d((1 , 1))
-
-#     def forward(self, x):
-#         BatchSize, NumTokens, Channel = x.shape
-#         Feat_H = Feat_W = int(NumTokens ** .5)
-#         x = x.permute(0, 2, 1).reshape(BatchSize, Channel, Feat_H, Feat_W)
-
-#         x = self.c1_block(x)
-#         x = self.c2_block(x)
-#         score = F.sigmoid(self.avg_pool(x).flatten(start_dim = 1)) 
-
-#         return score
-
 class ProjectLayer(nn.Module):
     def __init__(self, input_dim, output_dim, num_replicas, stack=False, is_array=True):
         super(ProjectLayer, self).__init__()
@@ -80,96 +42,6 @@ class ProjectLayer(nn.Module):
             out_tokens = torch.stack(out_tokens, dim=1)
 
         return out_tokens
-
-# class PromptLayer(nn.Module):
-#     def __init__(self, channel, length, depth, is_text, prompting_type, enabled=True):
-#         super(PromptLayer, self).__init__()
-
-#         self.channel = channel
-#         self.length = length
-#         self.depth = depth
-#         self.is_text = is_text
-#         self.enabled = enabled
-
-#         self.prompting_type = prompting_type
-
-#         if self.enabled: # only when enabled, the parameters should be constructed
-#             if 'S' in prompting_type: # static prompts
-#                 # learnable
-#                 self.static_prompts = nn.ParameterList(
-#                     [nn.Parameter(torch.empty(self.length, self.channel))
-#                      for _ in range(self.depth)])
-
-#                 for single_para in self.static_prompts:
-#                     nn.init.normal_(single_para, std=0.02)
-
-#             if 'D' in prompting_type: # dynamic prompts
-#                 self.dynamic_prompts = [0.] # place holder
-#             self.scale_prompt = [0.]
-#             self.prompt_layer_id = 1
-#             self.prompt_id = 0
-
-#     def set_dynamic_prompts(self, dynamic_prompts):
-#         self.dynamic_prompts = dynamic_prompts
-
-#     def set_scale_prompt(self, scale_prompts):
-#         self.scale_prompt = scale_prompts
-
-#     def forward_visual(self, resblock, indx, x, k_x=None, v_x=None, attn_mask: Optional[torch.Tensor] = None, prompt_id : int = 0, diag_attn : int = -1):
-#         if self.enabled:
-#             length = self.length
-
-#             # only prompt the first J layers
-#             if indx < self.depth:
-#                 static_prompts = self.static_prompts[indx].unsqueeze(0).expand(x.shape[1], -1, -1)
-#                 visual_context = static_prompts
-#             if indx == 0:  # for the first layer
-#                 visual_context = visual_context.permute(1, 0, 2).half()
-#                 x = torch.cat([x, visual_context], dim=0)
-#             else:
-#                 if indx < self.depth:  # replace with learnalbe tokens
-#                     prefix = x[0:x.shape[0] - 2 * length, :, :]   # prefix
-#                     suffix = x[x.shape[0] - length:, : , :]       # suffix
-#                     visual_context = visual_context.permute(1, 0, 2).half()
-#                     x = torch.cat([prefix, visual_context, suffix], dim=0)
-#                 else:  # keep the same
-#                     x = x
-
-#             if self.prompt_id != prompt_id:
-#                 self.prompt_layer_id = 0
-#                 self.prompt_id = prompt_id
-
-#             if indx == 0:
-#                 scale_context = self.scale_prompt[0][0,::].half()
-#                 x = torch.cat([x, scale_context], dim = 0)
-#             else:
-#                 if self.prompt_layer_id < (self.depth - 1):
-#                     prefix = x[0:x.shape[0] - length, :, :]
-#                     scale_context = self.scale_prompt[self.prompt_id][self.prompt_layer_id,::].half()
-#                     x = torch.cat([prefix, scale_context], dim=0)
-#                     self.prompt_layer_id += 1
-#                 else:
-#                     x = x
-            
-#         else:
-#             x = x
-
-#         x, attn_tmp = resblock(q_x=x, k_x=k_x, v_x= v_x, attn_mask=attn_mask, diag_attn=diag_attn)
-        
-#         if diag_attn != -1:
-#             tokens = x[1]
-#             x      = x[0]
-#             return x, tokens, attn_mask
-#         if self.enabled:
-#             tokens = x[0:x.shape[0] - 2 * length, :, :]
-#             return x, tokens, attn_tmp
-#         else:
-#             tokens = x
-#             return x, tokens, attn_tmp
-
-#     def forward(self, resblock, indx, x, k_x=None, v_x=None, attn_mask: Optional[torch.Tensor] = None, prompt_id : int = 0, diag_attn : int = -1):
-#         if not self.is_text:
-#             return self.forward_visual(resblock, indx, x, k_x, v_x, attn_mask, prompt_id,  diag_attn)
 
 class PromptLayer(nn.Module):
     def __init__(self, channel, length, depth, is_text, prompting_type, enabled=True):
@@ -775,7 +647,6 @@ class MVPS(nn.Module):
             x = x.reshape(x.shape[0], x.shape[1], -1)  # shape = [*, width, grid ** 2]
             x = x.permute(0, 2, 1)  # shape = [*, grid ** 2, width]
 
-        # class embeddings and positional embeddings
         x = torch.cat(
             [self.visual.class_embedding.to(x.dtype) +
              torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
@@ -783,7 +654,6 @@ class MVPS(nn.Module):
 
         x = x + self.visual.positional_embedding.to(x.dtype)
 
-        # a patch_dropout of 0. would mean it is disabled and this function would do nothing but return what was passed in
         x = self.visual.patch_dropout(x)
         x = self.visual.ln_pre(x)
 
@@ -794,33 +664,7 @@ class MVPS(nn.Module):
         align_patch_tokens = []
         prompt_id = 0
 
-        # Conference paper version :
-        # for indx, r in enumerate(self.visual.transformer.resblocks):
-        #     if (indx + 1) in self.output_layers:
-        #         x, tokens, attn_tmp = \
-        #             self.visual_prompter(r, indx, x, k_x=None, v_x=None, attn_mask=None, prompt_id=prompt_id, diag_attn=-1) # 在推理阶段不使用对角注意力机制
-        #         N = tokens.shape[0]
-
-        #         # For Segmentation : 
-        #         seg_adapt_med = self.patch_token_layer[prompt_id](tokens + ori_patch_tokens[prompt_id].permute(1, 0 ,2))
-        #         proj_patch_tokens.append(seg_adapt_med[1:,:,:].permute(1,0,2))
-        #         # For Detection:
-        #         pooled = self.cls_token_layer[prompt_id](tokens[0,:,:])
-        #         proj_cls_tokens.append(pooled)
-
-        #         # Combine the knowledge of Segmentation and Detection          
-        #         prompt_id += 1
-        #     else : 
-        #         x, tokens, attn_tmp = \
-        #             self.visual_prompter(r, indx, x, k_x=None, v_x=None, attn_mask=None, prompt_id=prompt_id)
-
-
-        #  分开两个阶段, 第一个阶段将结果全部推理出来， 第二个阶段再将结果通过最后一个 Transformer Layer
-        #  第一个阶段将结果全部推理出来
         num_tokens, batch_size, embed_dim = x.shape
-        #  没使用静态提示微调
-        # img_features = torch.zeros([len(self.output_layers)] + [num_tokens + self.prompting_length, batch_size, embed_dim], device=x.device, dtype=x.dtype)
-        #  使用静态提示微调
         img_features = torch.zeros([len(self.output_layers)] + [num_tokens + self.prompting_length, batch_size, embed_dim], device=x.device, dtype=x.dtype)
         for indx, r in enumerate(self.visual.transformer.resblocks[:-1]):
             if (indx + 1) in self.output_layers:
@@ -858,38 +702,12 @@ class MVPS(nn.Module):
                 local_token = self.patch_token_layer[prompt_id](projection_token)
                 proj_patch_tokens.append(local_token.permute(1, 0, 2))
             
-            # v0 : NOT GOOD 
-            # For Classification 
-            # pooled = self.cls_token_layer[prompt_id](output_tokens[0,:,:])
-            # proj_cls_tokens.append(pooled)
-            
-            # V1 : 
-            # For Classification , we can use vanilla attn : 
-            # ln_x, attn = self.custom_attn(model_res.attn, model_res.ln_1(x), attn_mask=None, attn_type="vanilla")
-            # output_x = x + model_res.ls_1(ln_x)
-            # output_x = output_x + model_res.ls_2(model_res.mlp(model_res.ln_2(output_x)))
-            # cls_token = output_x[0,:,:]
-            # pooled = self.cls_token_layer[prompt_id](cls_token)
-            # proj_cls_tokens.append(pooled)
-            
-            # V2 :
-            # For classification , we can USE vanilla attn to get GLOBAL INFORMATION (Align with Text Feature) 
-            # Get Similarity : 
-            # last_cls_token, last_patch_token, prompt_tuning = img_features[-1][0:1,:,:], img_features[-1][1:num_tokens,:,:], img_features[-1][num_tokens:,:,:]
-            # simi = torch.matmul(output_patch_token.permute(1, 0, 2), output_patch_token.permute(1, 2, 0)).detach()
-            # simi_patch_token = self.adaptively_aggregate(last_patch_token, simi)
-            # sim_ec_last_x = torch.cat([last_cls_token, simi_patch_token, prompt_tuning], dim=0)
-
             # V2.5:
             ln_x, attn = self.custom_attn(model_res.attn, model_res.ln_1(img_features[prompt_id]), attn_mask=None, mid_simi=None, attn_type="vanilla")
             output_x = img_features[prompt_id] + model_res.ls_1(ln_x)
             output_x = output_x + model_res.ls_2(model_res.mlp(model_res.ln_2(output_x)))
             align_patch_tokens.append(self.patch_token_layer[-1](output_x[1:num_tokens,:,:]).permute(1, 0, 2))
             proj_cls_tokens.append(self.cls_token_layer[-1](output_x[0,:,:]))
-
-            # output_x = self.visual.ln_post(output_x)
-            # if self.visual.proj is not None:
-            #     output_x = output_x @ self.visual.proj
 
         return proj_cls_tokens , proj_patch_tokens, align_patch_tokens
 
@@ -927,7 +745,6 @@ class MVPS(nn.Module):
         
         self.text_prompter.reset_memory_prompt()
 
-        # proj_cls_tokens, proj_patch_tokens = self.proj_visual_tokens(image_features, patch_tokens, [ori_image_features, ori_patch_tokens])
         for idx in range(len(proj_cls_tokens)):
             proj_cls_tokens[idx] = proj_cls_tokens[idx] / proj_cls_tokens[idx].norm(dim=-1, keepdim=True)
         for idx in range(len(align_patch_tokens)):
@@ -939,39 +756,6 @@ class MVPS(nn.Module):
         return proj_cls_tokens, proj_patch_tokens, align_patch_tokens, text_features, ori_image_feature
 
     def visual_text_similarity(self, image_feature, patch_token, text_feature, aggregation, texts, ori_image_feature):
-        # fusion_weight = self.weight_linear(ori_image_feature[-1].detach())
-        # fusion_weight = self.weight_linear(image_feature[-1])
-        # fusion_weight = torch.softmax(fusion_weight, dim=-1)
-
-        # fusion_weight = []
-        # for prompt_id in range(self.prompt_num):
-        #     fusion_weight.append(
-        #         self.weight_linear(image_feature[prompt_id])
-        #     )
-        # fusion_weight = torch.cat(fusion_weight , dim=-1)
-        # fusion_weight = torch.softmax(fusion_weight, dim=-1)
-
-        # fusion_weight = 0
-        # for prompt_id in range(self.prompt_num):
-        #     fusion_weight = fusion_weight + self.weight_linear(image_feature[prompt_id])
-        # fusion_weight = torch.softmax(fusion_weight, dim=-1)
-
-        # fusion_weight = self.weight_linear(ori_image_feature[-1].detach())
-        # fusion_weight = torch.softmax(fusion_weight, dim=-1)
-        # self.fusion_weight = fusion_weight
-
-        # fusion_weight = []
-        # for prompt_id in range(self.prompt_num):
-        #     fusion_weight.append(
-        #         self.weight_linear(patch_token[0][prompt_id].detach())
-        #     )
-        # fusion_weight = torch.cat(fusion_weight , dim=-1)
-        # self.fusion_weight = fusion_weight = torch.softmax(fusion_weight, dim=-1)
-
-        fusion_weight = self.weight_linear(ori_image_feature[-1].detach())
-        fusion_weight = torch.softmax(fusion_weight, dim=-1)
-        self.fusion_weight = fusion_weight
-
         anomaly_maps  = []
 
         seg_alpha = .8
@@ -985,24 +769,6 @@ class MVPS(nn.Module):
         
         cls_alpha = .5
         for prompt_id in range(self.prompt_num):
-            # Comparison experiment version :
-            # clustered_feature = self.mvpcl.forward(patch_token[prompt_id], anomaly_maps[prompt_id], prompt_id)        # [B,K,D]
-            # clustered_feature_global = torch.mean(clustered_feature, dim=1)                                           # [B,K,D] -> [B,D]
-            # fusion_image_feature = cls_alpha * clustered_feature_global + (1 - cls_alpha) * image_feature[prompt_id]  # [B,D]
-            # anomaly_score = 100 * fusion_image_feature.unsqueeze(1) @ text_feature[prompt_id]                         # [B,1,D] @ [B,D,2] 
-            # anomaly_score = anomaly_score.squeeze(1)
-            # anomaly_score = torch.softmax(anomaly_score, dim=-1)
-            # anomaly_scores.append(anomaly_score)
-
-            # Conference version :
-            # clustered_feature = self.mvpcl.forward(patch_token[prompt_id], anomaly_maps[prompt_id], prompt_id) # [B,K,D]
-            # K = clustered_feature.shape[1]
-            # clustered_feature = cls_alpha * clustered_feature + (1 - cls_alpha) * image_feature[prompt_id].unsqueeze(1).repeat(1,K,1)
-            # anomaly_score_cluster = 100 * clustered_feature @ text_feature[prompt_id] # [B,K,2]
-            # anomaly_score_cluster = torch.mean(anomaly_score_cluster, dim=1) # [B,2]
-            # anomaly_score_cluster = torch.softmax(anomaly_score_cluster, dim=-1) # [B,2]
-            # anomaly_scores.append(anomaly_score_cluster)
-
             # v2 version :
             # v2.2 using  patch_token[1] to alignment : 
             clustered_feature     = self.mvpcl.forward(
@@ -1029,22 +795,18 @@ class MVPS(nn.Module):
 
             fusion_anomaly_map = 0
             for i in range(len(anomaly_maps)):
-                fusion_anomaly_map = fusion_anomaly_map + fusion_weight[:,i:i+1].unsqueeze(-1).unsqueeze(-1) * anomaly_maps[i]
+                fusion_anomaly_map = fusion_anomaly_map + anomaly_maps[i]
                 anomaly_maps[i] = torch.softmax(anomaly_maps[i], dim=1)
             anomaly_map = torch.softmax(fusion_anomaly_map, dim=1)
 
             anomaly_map = (anomaly_map[:, 1:, :, :] + 1 - anomaly_map[:, 0:1, :, :]) / 2.0
             anomaly_score = torch.mean(torch.stack(anomaly_scores, dim = 1), dim = 1)
             anomaly_score = anomaly_score[:, 1]
-
             return anomaly_map, anomaly_score
         else: # otherwise, we do the softmax normalization for individual hierarchies
-            # for i in range(len(anomaly_maps)):
-            #     anomaly_maps[i] = torch.softmax(anomaly_maps[i], dim=1)
-
             fusion_anomaly_map = 0
             for i in range(len(anomaly_maps)):
-                fusion_anomaly_map = fusion_anomaly_map + fusion_weight[:,i:i+1].unsqueeze(-1).unsqueeze(-1) * anomaly_maps[i].detach()
+                fusion_anomaly_map = fusion_anomaly_map + anomaly_maps[i].detach()
                 anomaly_maps[i] = torch.softmax(anomaly_maps[i], dim=1)
             fusion_anomaly_map = torch.softmax(fusion_anomaly_map, dim=1)
             anomaly_maps.append(fusion_anomaly_map)
